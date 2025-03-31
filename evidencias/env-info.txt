@@ -1,0 +1,4 @@
+
+Execução iniciada em: 30/03/2025, 22:27:29
+Plataforma: android
+BrowserStack: Ativo
