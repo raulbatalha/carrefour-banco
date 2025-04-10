@@ -23,10 +23,11 @@ jobs:
       - name: Install Dependencies
         run: npm install
 
-      - name: Load .env file (optional)
-        if: exists('.env')
+      - name: Load .env file (if exists)
         run: |
-          cat .env >> $GITHUB_ENV
+          if [ -f .env ]; then
+            cat .env >> $GITHUB_ENV
+          fi
 
       - name: Run Tests
         run: npm run test
