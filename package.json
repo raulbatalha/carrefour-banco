@@ -6,6 +6,7 @@
     "test": "tests"
   },
   "scripts": {
+    "test": "npm run test:android-ci",
     "test:ios": "wdio run ./config/ios/wdio.config.ios.mocha.local.js",
     "test:android": "wdio run ./config/android/wdio.config.android.mocha.local.js",
     "test:ios-ci": "wdio run ./config/ios/wdio.config.ios.mocha.ci.js",
@@ -13,7 +14,7 @@
     "test:android-bdd": "wdio run ./config/android/wdio.config.android.cucumber.local.js",
     "test:android-bdd-ci": "wdio run ./config/android/wdio.config.android.cucumber.ci.js",
     "start:appium": "npx appium --allow-cors",
-    "report:allure": "allure generate allure-results --clean && allure open"
+    "test:allure": "allure generate allure-results --clean && cp -r allure-report/* public/"
   },
   "author": "Raul Batalha",
   "license": "ISC",
