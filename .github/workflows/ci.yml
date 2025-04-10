@@ -33,7 +33,7 @@ jobs:
         run: npm run test
 
       - name: Upload Test Artifacts
-        uses: actions/upload-artifact@v2.3.1
+        uses: actions/upload-artifact@v2
         with:
           name: test-results
           path: |
@@ -95,4 +95,3 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./public
-          publish_branch: gh-pages
