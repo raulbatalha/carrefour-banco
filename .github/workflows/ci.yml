@@ -35,12 +35,13 @@ jobs:
       - name: Generate Allure Report
         run: |
           mkdir -p public
-          if [ -d allure-results ] && [ "$(ls -A allure-results)" ]; then
+          if [ -d allure-results ] && [ "$(find allure-results -type f -name '*.json' | wc -l)" -gt 0 ]; then
             npm run test:allure
           else
-            echo "No allure results to report."
+            echo "Nenhum resultado válido para gerar relatório Allure."
+            echo "<html><body><h2>Falha na execução dos testes</h2></body></html>" > public/index.html
           fi
-
+      
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:

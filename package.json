@@ -6,7 +6,7 @@
     "test": "tests"
   },
   "scripts": {
-    "test": "npm run test:android-ci",
+    "test": "wdio run ./config/android/wdio.config.android.mocha.local.js",
     "test:ios": "wdio run ./config/ios/wdio.config.ios.mocha.local.js",
     "test:android": "wdio run ./config/android/wdio.config.android.mocha.local.js",
     "test:ios-ci": "wdio run ./config/ios/wdio.config.ios.mocha.ci.js",
