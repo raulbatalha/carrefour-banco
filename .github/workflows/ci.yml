@@ -1,0 +1,170 @@
+version: 1.0
+
+# ========================
+# REUSABLE COMMANDS
+# ========================
+commands:
+  setup-env-vars:
+    steps:
+      - run:
+          name: Validate and Setup .env file
+          command: |
+            [ -z "$BROWSERSTACK_USERNAME" ] && echo "Missing BROWSERSTACK_USERNAME" && exit 1
+            [ -z "$BROWSERSTACK_ACCESS_KEY" ] && echo "Missing BROWSERSTACK_ACCESS_KEY" && exit 1
+            [ -z "$DISCORD_WEBHOOK" ] && echo "Missing DISCORD_WEBHOOK" && exit 1
+
+            echo "BROWSERSTACK_USERNAME=${BROWSERSTACK_USERNAME}" > .env
+            echo "BROWSERSTACK_ACCESS_KEY=${BROWSERSTACK_ACCESS_KEY}" >> .env
+            echo "BUILD=<< pipeline.number >>" >> .env
+            echo "BUILDNAME=Mobile Test Build" >> .env
+            echo "TEST_PLATFORM=android" >> .env # ou ios
+            echo "DISCORD_WEBHOOK=${DISCORD_WEBHOOK}" >> .env
+
+  prepare-test-dir:
+    steps:
+      - run:
+          name: Copy Project Files to Container Workspace
+          command: |
+            mkdir -p /app
+            cp -r . /app/
+
+  wrap-test-results:
+    steps:
+      - run:
+          name: Archive Test Results
+          command: |
+            mkdir -p test_artifact
+            tar -cvf ./test_artifact/${CIRCLE_JOB}_allure.tar /app/allure-report || echo "No allure-report"
+            tar -cvf ./test_artifact/${CIRCLE_JOB}_logs.tar /app/logs || echo "No logs"
+          when: always
+      - store_artifacts:
+          path: test_artifact
+
+  install-dependencies:
+    steps:
+      - restore_cache:
+          keys:
+            - node-deps-{{ checksum "package-lock.json" }}
+      - run:
+          name: Install Dependencies
+          command: |
+            cd /app
+            npm install
+      - save_cache:
+          paths:
+            - /app/node_modules
+          key: node-deps-{{ checksum "package-lock.json" }}
+
+# ========================
+# JOBS
+# ========================
+jobs:
+  Start-Testing-Notification:
+    docker:
+      - image: cimg/node:18.16.0
+    steps:
+      - checkout
+      - run: npm install dotenv run-func @penseapp/discord-notification
+      - run:
+          name: Setup Notification Env
+          command: |
+            echo "BUILD=<< pipeline.number >>" > .env
+            echo "REPOSITORY_URL=$CIRCLE_REPOSITORY_URL" >> .env
+            echo "BUILD_URL=$CIRCLE_BUILD_URL" >> .env
+            echo "BRANCH=$CIRCLE_BRANCH" >> .env
+            echo "DISCORD_WEBHOOK=$DISCORD_WEBHOOK" >> .env
+      - run: npx run-func discord-notification.js test "start"
+
+  Stop-Testing-Notification:
+    docker:
+      - image: cimg/node:18.16.0
+    steps:
+      - checkout
+      - run: npm install dotenv run-func @penseapp/discord-notification
+      - run:
+          name: Setup Notification Env
+          command: |
+            echo "BUILD=<< pipeline.number >>" > .env
+            echo "REPOSITORY_URL=$CIRCLE_REPOSITORY_URL" >> .env
+            echo "BUILD_URL=$CIRCLE_BUILD_URL" >> .env
+            echo "BRANCH=$CIRCLE_BRANCH" >> .env
+            echo "DISCORD_WEBHOOK=$DISCORD_WEBHOOK" >> .env
+      - run: npx run-func discord-notification.js test "stop"
+
+  Testing-Android:
+    docker:
+      - image: pridecontrol/wdio:1.1.0
+        auth:
+          username: $USERNAME
+          password: $PASSWORD
+    steps:
+      - checkout
+      - setup-env-vars
+      - prepare-test-dir
+      - install-dependencies
+      - run:
+          name: Run Android Tests
+          command: |
+            cd /app
+            npm run test-android-ci
+      - wrap-test-results
+
+  Testing-Android-Cucumber:
+    docker:
+      - image: pridecontrol/wdio:1.1.0
+        auth:
+          username: $USERNAME
+          password: $PASSWORD
+    steps:
+      - checkout
+      - setup-env-vars
+      - prepare-test-dir
+      - install-dependencies
+      - run:
+          name: Install Cucumber Dependencies
+          command: |
+            cd /app
+            npm install --save-dev @wdio/cucumber-framework
+      - run:
+          name: Run Android BDD Tests
+          command: |
+            cd /app
+            npm run test-android-bdd-ci
+      - wrap-test-results
+
+  Testing-Ios:
+    docker:
+      - image: pridecontrol/wdio:1.1.0
+        auth:
+          username: $USERNAME
+          password: $PASSWORD
+    steps:
+      - checkout
+      - setup-env-vars
+      - prepare-test-dir
+      - install-dependencies
+      - run:
+          name: Run iOS Tests
+          command: |
+            cd /app
+            npm run test-ios-ci
+      - wrap-test-results
+
+# ========================
+# WORKFLOWS
+# ========================
+workflows:
+  version: 1
+  parallel-tests:
+    jobs:
+      - Start-Testing-Notification
+      - Testing-Android:
+          requires: [Start-Testing-Notification]
+      - Testing-Ios:
+          requires: [Start-Testing-Notification]
+      - Testing-Android-Cucumber:
+          requires: [Testing-Android]
+      - Stop-Testing-Notification:
+          requires:
+            - Testing-Ios
+            - Testing-Android-Cucumber
